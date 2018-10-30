@@ -33,25 +33,38 @@ class NeuralNet(object):
 	def convolve(self, data, kernel, stepSize = 1):
 		# X is horizontal (columns), Y is vertical (rows)
 		(yKernel, xKernel) = kernel.shape # kernel (0,0) is top left corner.
-		xBound, yBound = int(math.floor(xKernel / 2)), int(math.floor(yKernel / 2))
-		(yShape, xShape) = data.shape
+		if not ((xKernel % 2 == 0) and (yKernel % 2 == 0)):
 
-		output = np.zeros((yShape - 2*yBound, xShape - 2*xBound))
+			xBound, yBound = int(math.floor(xKernel / 2)), int(math.floor(yKernel / 2))
+			(yShape, xShape) = data.shape
 
-		for y in range(yBound, yShape - yBound, stepSize): # Avoid invalid indexing when convolving by changing the range of the loop
-			for x in range(xBound, xShape - xBound, stepSize):
-				miniData = data[(y - yBound):(y + yBound + 1), (x - xBound):(x + xBound + 1)] # Get slice of data that we care about
+			output = np.zeros((yShape - 2*yBound, xShape - 2*xBound))
 
-				output[y - yBound, x - xBound] = sciConvolve(miniData, kernel, 'valid') # Convolve the slice of our data with the kernel, then output to corresponding pixel
+			for y in range(yBound, yShape - yBound, stepSize): # Avoid invalid indexing when convolving by changing the range of the loop
+				for x in range(xBound, xShape - xBound, stepSize):
+					miniData = data[(y - yBound):(y + yBound + 1), (x - xBound):(x + xBound + 1)] # Get slice of data that we care about
 
-				if(self.verbose):
-					print "center xy: ", x,y
-					print "data[", xBound, ":", xShape - xBound, ", ", yBound, ":", yShape - yBound, "]"
-					print "slice:"
-					print miniData
-					print "convolution result:"
-					print sciConvolve(miniData, kernel, 'valid')
-		return output
+					""" 
+					Convolve the slice of our data with the kernel, then output to corresponding pixel.
+					We flip the kernel to abide by convention, so that we get the expected (elementwise) answer from scipy.
+					See https://www.mathworks.com/matlabcentral/answers/74274-why-do-we-need-to-flip-the-kernel-in-2d-convolution
+					If you have numpy version v 1.12.0 or above, you should instead use np.flip(kernel,1).
+					"""
+					output[y - yBound, x - xBound] = sciConvolve(miniData, np.fliplr(kernel), 'valid')
+
+					if(self.verbose):
+						print "center xy: ", x,y
+						print "data[", xBound, ":", xShape - xBound, ", ", yBound, ":", yShape - yBound, "]"
+						print "slice:"
+						print miniData
+						print "kernel: "
+						print kernel
+						print "convolution result:"
+						print sciConvolve(miniData, kernel, 'valid')
+			return output
+		else: 
+			print "Kernel has even dimension."
+			return None
 
 	def activationFunction(self, value):
 		pass

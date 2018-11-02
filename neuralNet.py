@@ -20,22 +20,33 @@ class NeuralNet(object):
 		# self.output = np.zeros(y.shape)
 		self.verbose = False
 
-	def baseLayer(self):
-		l1_filter = numpy.zeros((2,3,3))
-		pass
+	def maxPool(self, data, windowSize):
+		"""
+		Force the network to focus on a few neurons instead of all of them. (Downsampling)
+		Saves processing time/power and makes the network less likely to overfit.
+		"""
+		(yShape, xShape) = data.shape
 
-	def hiddenLayer(self):
-		pass
+		if (xShape % windowSize is 0) and (yShape % windowSize is 0):
+			output = np.zeros((int(yShape / windowSize), int(xShape / windowSize)))
 
-	def poolLayer(self):
-		pass
+			for y in range(0, yShape, windowSize):
+				for x in range(0, xShape, windowSize):
+					output[int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
+			return output
+		else:
+			if self.verbose: print "Data size (", xShape, ",", yShape, ") not divisible by window size (", windowSize, ",", windowSize, ")  :("
+			return None
 
 	def convolve(self, data, kernel, stepSize = 1):
+		"""
+		Bring out certain aspects of the data by convolving it with kernels.
+		"""
 		# X is horizontal (columns), Y is vertical (rows)
 		(yKernel, xKernel) = kernel.shape # kernel (0,0) is top left corner.
 		if not ((xKernel % 2 == 0) and (yKernel % 2 == 0)):
 
-			xBound, yBound = int(math.floor(xKernel / 2)), int(math.floor(yKernel / 2))
+			yBound, xBound = int(math.floor(yKernel / 2)), int(math.floor(xKernel / 2))
 			(yShape, xShape) = data.shape
 
 			output = np.zeros((yShape - 2*yBound, xShape - 2*xBound))

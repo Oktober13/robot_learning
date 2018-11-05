@@ -77,5 +77,29 @@ class NeuralNet(object):
 			print "Kernel has even dimension."
 			return None
 
-	def activationFunction(self, value):
-		pass
+	def activationFunction(self, data, function = 'relu'):
+		"""
+		Function that acts on the output array to eliminate fuzz and generally clean up the output.
+		"""
+		output = np.zeros(data.shape)
+
+		for index, value in np.ndenumerate(data):
+			output[index] = value
+
+			if function is 'relu':
+				if value <= 0:
+					output[index] = 0
+			elif function is 'binary':
+				if value <= 0:
+					output[index] = 0
+				else:
+					output[index] = 1
+			elif function is 'sigmoid':
+				output[index] = 1.0 / float(1 + math.e ** (value))
+			elif function is 'tanh':
+				output[index] = (2.0 / (1 + math.e ** (-2 * value))) - 1.0
+			else:
+				print "Entered activation function is not supported at this time."
+				return None
+
+		return output

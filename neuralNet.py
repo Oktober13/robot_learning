@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
+import cv2
 import math
 import numpy as np
+import PIL.Image
+import os
+import rospkg
 import rospy
 from scipy.signal import convolve2d as sciConvolve
 
@@ -17,26 +21,93 @@ class NeuralNet(object):
 		else:
 			self.training = True
 
-		# self.output = np.zeros(y.shape)
 		self.verbose = False
 
-	def maxPool(self, data, windowSize):
-		"""
-		Force the network to focus on a few neurons instead of all of them. (Downsampling)
-		Saves processing time/power and makes the network less likely to overfit.
-		"""
-		(yShape, xShape) = data.shape
+		self.lowerBound = (200,80,220) # 205,85,227 is BGR of post it
+		self.upperBound = (210,90,235)
 
-		if (xShape % windowSize is 0) and (yShape % windowSize is 0):
-			output = np.zeros((int(yShape / windowSize), int(xShape / windowSize)))
+	def retrieveData(self, dataFilepath, weightFilepath):
+		rosPack = rospkg.RosPack()
+		pkgRoot = rosPack.get_path('robot_learning') # Gets the package
 
-			for y in range(0, yShape, windowSize):
-				for x in range(0, xShape, windowSize):
-					output[int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
-			return output
+		### Retrieve data
+
+		if dataFilepath is None: # If no data directory filepath is given
+			dataDirectory = os.path.join(pkgRoot, "data") # Create filepath for data directory
+
+			if not (os.path.isdir(dataDirectory)) or (len(os.listdir(dataDirectory)) == 0): # If data directory does not exist or is empty
+				print "No image data provided for training. Please specify filepath to data or place images in the /data directory."
+				if not (os.path.isdir(dataDirectory)): os.makedirs(dataDirectory)
+				return None, None
+		else: # Use given data directory
+			dataDirectory = dataFilepath
+
+		data = []
+
+		# Convert all image files in the given data directory filepath into np matrices
+		for filename in os.listdir(dataDirectory):
+			if filename.endswith(".jpg") or filename.endswith(".jpeg") or filename.endswith(".png"):
+				fp = open(os.path.join(dataDirectory, filename))
+				img = PIL.Image.open(fp).convert('RGBA') # Convert .jpg to RGBA PIL image
+
+				opencvImage = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR) # Convert PIL RGBA to OpenCV BGR
+				mask = cv2.inRange(opencvImage, self.lowerBound, self.upperBound)
+				mask = cv2.erode(mask, None, iterations=2)
+				mask = cv2.dilate(mask, None, iterations=2)
+				data.append(mask)
+		data = np.asarray(data)
+
+		print "data size: " + str(data.shape)
+
+		### Retrieve weights
+
+		if weightFilepath is None:
+			weightsDirectory = os.path.join(pkgRoot, "weights") # Create filepath for weight directory
+			weightsPath = os.path.join(weightsDirectory, "weights.txt") # Create filepath for weights file
+			if not (os.path.isdir(weightsDirectory)): os.makedirs(weightsDirectory) # If data directory does not exist or is empty
+			if not (os.path.isfile(weightsPath)): # If no weights file exists
+				file = open("weights.txt", "w")
+				(numImg, h, l) = data.shape
+				weights = np.random.rand(h,l)
+				file.write(weights)
+				file.close()
+			else: # Set weights equal to contents of weights.txt
+				file = open(os.path.join(weightsPath, "weights.txt"), "r")
+				weights = file.read()
+				file.close()
 		else:
-			if self.verbose: print "Data size (", xShape, ",", yShape, ") not divisible by window size (", windowSize, ",", windowSize, ")  :("
-			return None
+			weightsPath = weightFilepath
+
+		return data, weights
+
+	def train(self, dataFilepath = None, weightFilepath = None):
+		trainImg, seedWeights = self.retrieveData(dataFilepath, weightFilepath)
+		print seedWeights.shape
+
+		for epoch in range(1,11):
+			print self.fullNetwork(trainImg)
+		return
+
+	def fullNetwork(self, data):
+		# Normally, weights in kernel would be dynamically adusted by network in backpropagation step.
+		# For now, we'll just use the Sobel kernel for proof of concept.
+		weights = np.array([[1,0,-1], [2,0,-2], [1,0,-1]])
+
+		# Downsample to simplify data (640,480) to (64, 48)
+		downsample = self.maxPool(data, 10)
+
+		# One hidden layer
+		hidden_layer_input = self.convolve(downsample,weights) # Bias is set to zero right now
+		hidden_layer_activations = self.activationFunction(hidden_layer_input)
+		hidden_layer_output = numpy.reshape(-1,1)
+
+		# Output layer
+		output_weights = numpy.random.rand(hidden_layer_output.shape) # Each weight/output contributes a certain amount to the overall distance estimate
+		output_layer_input = numpy.multiply(hidden_layer_output, output_weights)
+		output = numpy.sum(output_layer_input)
+
+		error = actual - output # Distance. Actual is from the lidarscan taken at the time of the phote.
+		return error
 
 	def convolve(self, data, kernel, stepSize = 1):
 		"""
@@ -103,3 +174,31 @@ class NeuralNet(object):
 				return None
 
 		return output
+
+	def maxPool(self, data, windowSize):
+		"""
+		Force the network to focus on a few neurons instead of all of them. (Downsampling)
+		Saves processing time/power and makes the network less likely to overfit.
+		"""
+		try:
+			(yShape, xShape) = data.shape
+			zShape = 0
+		except:
+			(zShape, yShape, xShape) = data.shape
+
+		if (xShape % windowSize is 0) and (yShape % windowSize is 0):
+			output = np.zeros(int(zShape), (int(yShape / windowSize), int(xShape / windowSize)))
+
+			if zShape is 0:
+				for y in range(0, yShape, windowSize):
+					for x in range(0, xShape, windowSize):
+						output[int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
+			else:
+				for z in range(0, zShape):
+					for y in range(0, yShape, windowSize):
+						for x in range(0, xShape, windowSize):
+							output[z, int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
+			return output
+		else:
+			if self.verbose: print "Data size (", xShape, ",", yShape, ") not divisible by window size (", windowSize, ",", windowSize, ")  :("
+			return None

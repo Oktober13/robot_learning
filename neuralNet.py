@@ -93,20 +93,26 @@ class NeuralNet(object):
 		# For now, we'll just use the Sobel kernel for proof of concept.
 		weights = np.array([[1,0,-1], [2,0,-2], [1,0,-1]])
 
+		### DOWNSAMPLING
 		# Downsample to simplify data (640,480) to (64, 48)
-		downsample = self.maxPool(data, 10)
+		downsample = self.maxPool(data[1,:,:], 10)
+		# print downsample.shape
 
-		# One hidden layer
+		### HIDDEN LAYER
 		hidden_layer_input = self.convolve(downsample,weights) # Bias is set to zero right now
 		hidden_layer_activations = self.activationFunction(hidden_layer_input)
-		hidden_layer_output = numpy.reshape(-1,1)
+		# print hidden_layer_activations.shape
+		hidden_layer_output = np.reshape(-1,1)
 
-		# Output layer
-		output_weights = numpy.random.rand(hidden_layer_output.shape) # Each weight/output contributes a certain amount to the overall distance estimate
-		output_layer_input = numpy.multiply(hidden_layer_output, output_weights)
-		output = numpy.sum(output_layer_input)
+		### OUTPUT LAYER
+		y,x = hidden_layer_activations.shape
+		# Each weight/output contributes a certain amount to the overall distance estimate. Currently trying to generate small random values
+		output_weights = 0.001 * np.random.rand(y*x)
+		output_layer_input = np.multiply(hidden_layer_output, output_weights)
+		output = np.sum(output_layer_input)
 
-		error = actual - output # Distance. Actual is from the lidarscan taken at the time of the phote.
+		actual = 4 # No actual data right now; need to match LIDAR data timestamp with photo timestamps
+		error = actual - output # Distance.
 		return error
 
 	def convolve(self, data, kernel, stepSize = 1):
@@ -180,24 +186,14 @@ class NeuralNet(object):
 		Force the network to focus on a few neurons instead of all of them. (Downsampling)
 		Saves processing time/power and makes the network less likely to overfit.
 		"""
-		try:
-			(yShape, xShape) = data.shape
-			zShape = 0
-		except:
-			(zShape, yShape, xShape) = data.shape
+		(yShape, xShape) = data.shape
 
 		if (xShape % windowSize is 0) and (yShape % windowSize is 0):
-			output = np.zeros(int(zShape), (int(yShape / windowSize), int(xShape / windowSize)))
+			output = np.zeros((int(yShape / windowSize), int(xShape / windowSize)))
 
-			if zShape is 0:
-				for y in range(0, yShape, windowSize):
-					for x in range(0, xShape, windowSize):
-						output[int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
-			else:
-				for z in range(0, zShape):
-					for y in range(0, yShape, windowSize):
-						for x in range(0, xShape, windowSize):
-							output[z, int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
+			for y in range(0, yShape, windowSize):
+				for x in range(0, xShape, windowSize):
+					output[int(y / windowSize), int(x / windowSize)] = np.amax(data[y:(y+windowSize),x:(x+windowSize)])
 			return output
 		else:
 			if self.verbose: print "Data size (", xShape, ",", yShape, ") not divisible by window size (", windowSize, ",", windowSize, ")  :("

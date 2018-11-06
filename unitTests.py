@@ -12,10 +12,8 @@ class UnitTests(object):
 		convPass = self.convolutionTest()
 		activationTest = self.activationTest()
 		maxpoolPass = self.maxpoolTest()
-<<<<<<< HEAD
+
 		trainTest = self.trainTest()
-=======
->>>>>>> 2948b14d3efcfd00fd87931ba827ad243d931c87
 
 		if (convPass and maxpoolPass and activationTest):
 			print "All tests passed! :)"
@@ -25,10 +23,6 @@ class UnitTests(object):
 			print "activationTest unit test failed!"
 		if not maxpoolPass:
 			print "maxpoolTest unit test failed!"
-<<<<<<< HEAD
-		trainTest
-=======
->>>>>>> 2948b14d3efcfd00fd87931ba827ad243d931c87
 
 	def trainTest(self, dataFilepath = None):
 		nn = NeuralNet()
@@ -46,7 +40,6 @@ class UnitTests(object):
 		output = nn.convolve(data, kernel)
 
 		return self.arrayIsSame(output, expected)
-<<<<<<< HEAD
 
 	def activationTest(self):
 		nn = NeuralNet()
@@ -124,8 +117,6 @@ class UnitTests(object):
 
 		return self.arrayIsSame(output,expected)
 
-=======
-
 	def activationTest(self):
 		nn = NeuralNet()
 
@@ -201,8 +192,7 @@ class UnitTests(object):
 		output = nn.maxPool(data, windowsize)
 
 		return self.arrayIsSame(output,expected)
-
->>>>>>> 2948b14d3efcfd00fd87931ba827ad243d931c87
+		
 	@staticmethod
 	def arrayIsSame(output, expected):
 		if(not np.array_equal(output, expected)):
